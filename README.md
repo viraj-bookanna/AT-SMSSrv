@@ -11,7 +11,7 @@ git clone https://github.com/viraj-bookanna/AT-SMSSrv.git
 ### Installing requirements
 
 ```bash
-cd autoscan-tg-qr
+cd AT-SMSSrv
 ```
 
 ```bash
