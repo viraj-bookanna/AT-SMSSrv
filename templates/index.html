@@ -1,0 +1,915 @@
+<script language="javascript">
+
+var esc = '\u001b'; //'\u261d';
+var bad = '\u2639';
+
+sevenbitdefault = new Array(
+        '@', '\u00a3', '$', '\u00a5', '\u00e8', '\u00e9', '\u00f9', '\u00ec',
+        '\u00f2', '\u00c7', '\n', '\u00d8', '\u00f8', '\r', '\u00c5', '\u00e5',
+
+        '\u0081', '_', '\u0082', '\u0083', '\u0084', '\u0085', '\u0086', '\u0087',
+        '\u0088', '\u0089', '\u008a', esc, '\u00c6', '\u00e6', '\u00df', '\u00c9',
+
+        ' ',    '!',    '"',    '#',    '\u00a4',       '%',    '&',    '\'',
+        '(',    ')',    '*',    '+',    ',',    '-',    '.',    '/',
+
+        '0',    '1',    '2',    '3',    '4',    '5',    '6',    '7',
+        '8',    '9',    ':',    ';',    '<',    '=',    '>',    '?',
+
+        '\u00a1',       'A',    'B',    'C',    'D',    'E',    'F',    'G',
+        'H',    'I',    'J',    'K',    'L',    'M',    'N',    'O',
+
+        'P',    'Q',    'R',    'S',    'T',    'U',    'V',    'W',
+        'X',    'Y',    'Z',    '\u00c4', '\u00d6', '\u00d1', '\u00dc', '\u00a7',
+
+        '\u00bf',       'a',    'b',    'c',    'd',    'e',    'f',    'g',
+        'h',    'i',    'j',    'k',    'l',    'm',    'n',    'o',
+
+        'p',    'q',    'r',    's',    't',    'u',    'v',    'w',
+        'x',    'y',    'z',    '\u00e4', '\u00f6', '\u00f1', '\u00fc', '\u00e0'
+);
+
+sevenbitextended = new Array(
+        '\f',   0x0A,   // '\u000a',    // <FF>
+        '^',    0x14,   // '\u0014',    // CIRCUMFLEX ACCENT
+        '{',    0x28,   // '\u0028',    // LEFT CURLY BRACKET
+        '}',    0x29,   // '\u0029',    // RIGHT CURLY BRACKET
+        '\\',   0x2F,   // '\u002f',    // REVERSE SOLIDUS
+        '[',    0x3C,   // '\u003c',    // LEFT SQUARE BRACKET
+        '~',    0x3D,   // '\u003d',    // TILDE
+        ']',    0x3E,   // '\u003e',    // RIGHT SQUARE BRACKET
+        '|',    0x40,   // '\u0040',    // VERTICAL LINE \u007c
+        //'\u00a4', 0x65,       // '\u0065',    // EURO SIGN â‚¬
+        '\u20ac', 0x65  // '\u0065'     // EURO SIGN â‚¬
+);
+
+// Variable that stores the information to show the user the calculation of the translation
+var calculation = "";
+
+var maxChars = 160;
+var alerted = true; //false;
+
+function trim(stringToTrim)
+{
+	return stringToTrim.replace(/^\s+|\s+$/g,"");
+}
+
+// function te convert a bit string into a integer
+function binToInt(x)//sp
+{
+	var total = 0;	
+	var power = parseInt(x.length)-1;	
+
+	for(var i=0;i<x.length;i++)
+	{
+		if(x.charAt(i) == '1')
+		{
+			total = total +Math.pow(2,power);
+		}
+		power --;
+	}
+	return total;
+}
+
+function decode_timezone(timezone)
+{
+	var tz = parseInt(timezone.substring(0, 1), 16);
+	var result = '+';
+
+	if (tz & 8)
+		result = '-';
+	tz = (tz & 7) * 10;
+	tz += parseInt(timezone.substring(1, 2), 10);
+
+	var tz_hour = Math.floor(tz / 4);
+	var tz_min = 15 * (tz % 4) 
+
+	if (tz_hour < 10)
+		result += '0';
+	result += tz_hour +':';
+	if (tz_min == 0)
+		result += '00';
+	else
+		result += tz_min;
+
+	return result;
+}
+
+// function to convert a integer into a bit String
+function intToBin(x,size) //sp
+{
+	var base = 2;
+	var num = parseInt(x);
+	var bin = num.toString(base);
+	for(var i=bin.length;i<size;i++)
+	{
+		bin = "0" + bin;
+	}
+	return bin;
+}
+
+// function to convert a Hexnumber into a 10base number
+function HexToNum(numberS)
+{
+	var tens = MakeNum(numberS.substring(0,1));
+	
+	var ones = 0;
+	if(numberS.length > 1) // means two characters entered
+		ones=MakeNum(numberS.substring(1,2));
+	if(ones == 'X') 
+	{
+		return "00";
+	}
+	return  (tens * 16) + (ones * 1);
+}
+
+// helper function for HexToNum
+function MakeNum(str) 
+{
+	if((str >= '0') && (str <= '9'))
+		return str;
+	switch(str.toUpperCase()) 
+	{
+		case "A": return 10;
+		case "B": return 11;
+		case "C": return 12;
+		case "D": return 13;
+		case "E": return 14;
+		case "F": return 15;
+		default:
+		return 16;
+   	}
+	return 16;
+}
+
+//function to convert integer to Hex
+function intToHex(i) //sp
+ {
+  var sHex = "0123456789ABCDEF";	
+  h = ""; 
+  i = parseInt(i);	
+  for(j = 0; j <= 3; j++)
+  {
+    h += sHex.charAt((i >> (j * 8 + 4)) & 0x0F) +
+	 sHex.charAt((i >> (j * 8)) & 0x0F);
+  }
+  return h.substring(0,2);
+}
+
+function ToHex(i)
+{
+	var sHex = "0123456789ABCDEF";
+	var Out = "";
+
+	Out = sHex.charAt(i&0xf);
+	i>>=4;
+	Out = sHex.charAt(i&0xf) + Out;
+
+	return Out;
+}
+
+function getSevenBitExtendedCh(code)
+{
+	for (var i = 0; i < sevenbitextended.length; i += 2)
+		if (sevenbitextended[i +1] == code)
+			return sevenbitextended[i];
+	return bad;
+}
+
+function getSevenBitExt(character)
+{
+	for (var i = 0; i < sevenbitextended.length; i += 2)
+		if (sevenbitextended[i] == character)
+			return sevenbitextended[i +1];
+	return 0;
+}
+
+function getSevenBit(character)
+{
+	for (var i = 0; i < sevenbitdefault.length; i++)
+		if (sevenbitdefault[i] == character)
+			return i;
+	return 0;
+}
+
+function getEightBit(character)
+{
+	return character;
+}
+
+function get16Bit(character)
+{
+	return character;
+}
+
+function phoneNumberMap(character)
+{
+//	return character;
+	if((character >= '0') && (character <= '9'))
+	{
+		return character;
+	}
+	switch(character.toUpperCase())
+	{
+		case '*':
+			return 'A';
+		case '#':
+			return 'B';
+		case 'A':
+			return 'C';
+		case 'B':
+			return 'D';
+		case 'C':
+			return 'E';
+//		case '+':
+//			return '+'; // An exception to fit with current processing ...
+		default:
+			return 'F';
+	}
+	return 'F';
+}
+
+// function to convert semioctets to a string
+function semiOctetToString(inp) //sp
+{
+	var out = "";	
+	for(var i=0;i<inp.length;i=i+2)
+	{
+		var temp = inp.substring(i,i+2);	
+		out = out + phoneNumberMap(temp.charAt(1)) + phoneNumberMap(temp.charAt(0));
+	}
+
+	return out;
+}
+
+function encodeGSM7bitPacked(inpString)
+{
+	var octetFirst = "";
+	var octetSecond = ""; 
+	var output = "";
+	var padding = String.fromCharCode(0x0D);
+	var tmp = inpString;
+	var inpStr = "";
+
+	for (var i = 0; i < tmp.length; i++)
+	{
+		if (getSevenBitExt(tmp.charAt(i)))
+			inpStr += String.fromCharCode(0x1B);
+
+		inpStr += tmp.charAt(i);
+	}
+
+	var len = inpStr.length;
+	if ((len % 8 == 7) || (len % 8 == 0 && len > 0 && inpStr.charAt(len - 1) == padding))
+		inpStr += padding;
+
+	for (var i = 0; i <= inpStr.length; i++)
+	{
+		if (i == inpStr.length)
+		{
+			if (octetSecond != "") // AJA Fix overshoot
+			{
+				output = output + "" + (intToHex(binToInt(octetSecond)));
+			}
+			break;
+		}
+
+		if (inpStr.charAt(i) == String.fromCharCode(0x1B))
+			current = intToBin(0x1B,7);
+		else
+		{
+			tmp = getSevenBitExt(inpStr.charAt(i));
+			if (tmp == 0)
+				tmp = getSevenBit(inpStr.charAt(i));
+			else
+				tmp = getSevenBitExt(inpStr.charAt(i));
+
+			current = intToBin(tmp,7);
+		}
+
+		var currentOctet;
+		if(i!=0 && i%8!=0)
+		{
+			octetFirst = current.substring(7-(i)%8);
+			currentOctet = octetFirst + octetSecond;	//put octet parts together
+			
+			output = output + "" + (intToHex(binToInt(currentOctet)));
+			octetSecond = current.substring(0,7-(i)%8);	//set net second octet
+		}
+		else
+		{
+			octetSecond = current.substring(0,7-(i)%8);
+		}	
+	}
+
+}
+
+
+function stringToPDU(inpString,phoneNumber,smscNumber,size,mclass,to_toa,valid,receipt) // AJA fixed SMSC processing
+{
+	var bitSize = size[0].value * size[0].checked | size[1].value * size[1].checked | size[2].value * size[2].checked;
+
+	var octetFirst = "";
+	var octetSecond = ""; 
+	var output = "";
+
+	//Make header
+	var SMSC_INFO_LENGTH = 0;
+	var SMSC_LENGTH = 0;
+	var SMSC_NUMBER_FORMAT = "";
+	var SMSC = "";
+	if (smscNumber != 0)
+	{
+		SMSC_NUMBER_FORMAT = "81"; // national
+
+		if (smscNumber.substr(0,1) == '+')
+		{
+			SMSC_NUMBER_FORMAT = "91"; // international
+			smscNumber = smscNumber.substr(1);
+		}
+		else if (smscNumber.substr(0,1) !='0')
+		{
+			SMSC_NUMBER_FORMAT = "91"; // international
+		}
+
+		if(smscNumber.length%2 != 0)
+		{
+			// add trailing F
+			smscNumber += "F";
+		}	
+	
+		SMSC = semiOctetToString(smscNumber);
+		SMSC_INFO_LENGTH = ((SMSC_NUMBER_FORMAT + "" + SMSC).length)/2;
+		SMSC_LENGTH = SMSC_INFO_LENGTH;
+		
+	}
+	if(SMSC_INFO_LENGTH < 10)
+	{
+		SMSC_INFO_LENGTH = "0" + SMSC_INFO_LENGTH;
+	}
+	var firstOctet; // = "1100";
+
+	if (receipt.checked)
+	{
+		if (document.getElementById('pduTool').vFlag.checked)
+		{
+			firstOctet = "3100"; // 18 is mask for validity period // 10 indicates relative
+		}
+		else
+		{
+			firstOctet = "2100";
+		}
+	}
+	else
+	{
+		if (document.getElementById('pduTool').vFlag.checked)
+		{
+			firstOctet = "1100";
+		}
+		else
+		{
+			firstOctet = "0100";
+		}
+	}
+	
+	var REIVER_NUMBER_FORMAT = "81"; // (national) 81 is "unknown"
+	if (phoneNumber.substr(0,1) == '+')
+	{
+		REIVER_NUMBER_FORMAT = "91"; // international
+		phoneNumber = phoneNumber.substr(1); //,phoneNumber.length-1);
+	}
+	else if (phoneNumber.substr(0,1) !='0')
+	{
+		REIVER_NUMBER_FORMAT = "91"; // international
+	}
+
+	switch (to_toa)
+	{
+		case "145":
+			REIVER_NUMBER_FORMAT = "91"; // international
+			break;
+
+		case "161":
+			REIVER_NUMBER_FORMAT = "A1"; // national
+			break;
+
+		case "129":
+			REIVER_NUMBER_FORMAT = "81"; // unknown
+			break;
+	}
+
+	var REIVER_NUMBER_LENGTH = intToHex(phoneNumber.length);
+
+	if(phoneNumber.length%2 != 0)
+	{
+		// add trailing F
+		phoneNumber += "F";
+	}
+
+	var REIVER_NUMBER = semiOctetToString(phoneNumber);
+	var PROTO_ID = "00";
+	var DCS=0;
+	if (mclass != -1) // AJA
+	{
+		DCS = mclass | 0x10;
+	}
+	switch(bitSize)
+	{
+		case 7:
+			break;
+		case 8:
+			DCS = DCS | 4;
+			break;
+		case 16:
+			DCS = DCS | 8;
+			break;
+
+		default:
+			alert("Invalid Alphabet Size");
+			return "";
+	}
+
+
+	var DATA_ENCODING = intToHex(DCS);
+//	var DATA_ENCODING = "00"; // Default
+//	if (bitSize == 8)
+//	{
+//		DATA_ENCODING = "04";
+//	}
+//	else if (bitSize == 16)
+//	{
+//		DATA_ENCODING = "08";
+//	}
+
+	var VALID_PERIOD = ""; // AA
+	if (document.getElementById('pduTool').vFlag.checked)
+	{
+		VALID_PERIOD = intToHex(valid); // AA
+	}
+
+	var userDataSize;
+	if (bitSize == 7)
+	{
+		var tmp = inpString;
+		var inpStr = "";
+
+		for (var i = 0; i < tmp.length; i++)
+		{
+			if (getSevenBitExt(tmp.charAt(i)))
+				inpStr += String.fromCharCode(0x1B);
+
+			inpStr += tmp.charAt(i);
+		}
+
+		inpStr = inpStr.substring(0, maxChars);
+
+		userDataSize = intToHex(inpStr.length);
+
+		for (var i = 0; i <= inpStr.length; i++)
+		{
+			if (i == inpStr.length)
+			{
+				if (octetSecond != "") // AJA Fix overshoot
+				{
+					output = output + "" + (intToHex(binToInt(octetSecond)));
+				}
+				break;
+			}
+
+			//var current = intToBin(getSevenBit(inpStr.charAt(i)),7);
+
+			if (inpStr.charAt(i) == String.fromCharCode(0x1B))
+				current = intToBin(0x1B,7);
+			else
+			{
+				tmp = getSevenBitExt(inpStr.charAt(i));
+				if (tmp == 0)
+					tmp = getSevenBit(inpStr.charAt(i));
+				else
+					tmp = getSevenBitExt(inpStr.charAt(i));
+
+				current = intToBin(tmp,7);
+			}
+
+			var currentOctet;
+			if(i!=0 && i%8!=0)
+			{
+				octetFirst = current.substring(7-(i)%8);
+				currentOctet = octetFirst + octetSecond;	//put octet parts together
+			
+				output = output + "" + (intToHex(binToInt(currentOctet)));
+				octetSecond = current.substring(0,7-(i)%8);	//set net second octet
+			}
+			else
+			{
+				octetSecond = current.substring(0,7-(i)%8);
+			}	
+		}
+
+		encodeGSM7bitPacked(inpString);
+	}
+	else if (bitSize == 8)
+	{
+		userDataSize = intToHex(inpString.length);
+
+		var CurrentByte = 0;
+		for(var i=0;i<inpString.length;i++)
+		{
+			CurrentByte = getEightBit(inpString.charCodeAt(i));
+			output = output + "" + ( ToHex( CurrentByte ) );
+		}
+	}
+	else if (bitSize == 16)
+	{
+		userDataSize = intToHex(inpString.length * 2);
+
+		var myChar=0;
+		var ussd = "";
+
+		for(var i=0;i<inpString.length;i++)
+		{
+			myChar = get16Bit( inpString.charCodeAt(i) );
+			output = output + "" + ( ToHex( (myChar&0xff00)>>8 )) + ( ToHex( myChar&0xff ) );
+			ussd += ( ToHex( (myChar&0xff00)>>8 )) + ( ToHex( myChar&0xff ) );
+		}
+	}
+
+	var header = SMSC_INFO_LENGTH + SMSC_NUMBER_FORMAT + SMSC + firstOctet + REIVER_NUMBER_LENGTH + REIVER_NUMBER_FORMAT  + REIVER_NUMBER +  PROTO_ID + DATA_ENCODING + VALID_PERIOD + userDataSize;
+
+	var PDU = header + output;
+
+	var AT = "AT+CMGS=" + (PDU.length/2 - SMSC_LENGTH - 1) ; // Add /2 for PDU length AJA - I think the SMSC information should also be excluded
+
+//	var bStep=18;
+//	for(var breakUp=1;breakUp*bStep < PDU.length;breakUp++)
+//	{
+//		PDU = PDU.substr(0,breakUp*bStep+breakUp-1) + " " + PDU.substr(breakUp*bStep+breakUp-1); 
+//	}
+
+	//CMGW
+	return AT + "\n" + PDU;
+}
+
+function countCharacters(elem)
+{
+	var size = document.getElementById('pduTool').size;
+	var bitSize = size[0].value * size[0].checked | size[1].value * size[1].checked | size[2].value * size[2].checked;
+	//var keysSoFar = elem.value.length;
+	var characters = 0;
+	var extented = 0;
+
+	if (bitSize == 7)
+	{
+		for (var i = 0; i < elem.value.length; i++)
+		{
+			if (getSevenBitExt(elem.value.charAt(i)))
+			{
+				extented++;
+				characters++;
+			}
+			characters++;
+		}
+	}
+	else
+		characters = elem.value.length;
+/*
+	if (characters > maxChars)
+	{
+		if (!alerted)
+		{
+			alert ('Max length '+ maxChars + '!');
+		}
+		elem.value = elem.value.substring (0, maxChars); //chop
+		alerted = true;
+		characters = maxChars;
+	}
+*/
+	//window.status = "Characters left : " + (maxChars - characters);
+	document.getElementById('counter').innerHTML = characters+" / "+maxChars;
+
+	var info = "<BR><SMALL>&nbsp;</SMALL>";
+	if (extented)
+		info = "<BR><SMALL>"+extented+" extended character(s).</SMALL>";
+
+	if (characters > maxChars)
+		document.getElementById('counter_notice').innerHTML = "<font color=red>Text is too long.</font>"+info;
+	else
+		document.getElementById('counter_notice').innerHTML = info;
+}
+
+function change_size(value)
+{
+	var elem = document.getElementById('pduTool').size;
+	var bitSize = elem[0].value * elem[0].checked | elem[1].value * elem[1].checked | elem[2].value * elem[2].checked;
+
+	if (value)
+	{
+		var len = elem.length;
+		for (var i = 0; i < len; i++)
+		{
+			elem[i].checked = false;
+			if (elem[i].value == "7")
+				elem[i].checked = true;
+		}
+		return;
+	}
+
+	switch (bitSize)
+	{
+		case 7:
+			maxChars = 160;
+			break;
+
+		case 8:
+			maxChars = 140;
+			break;
+
+		case 16:
+			maxChars = 70;
+			break;
+	}
+
+	countCharacters(document.getElementById('smsText'));
+}
+
+function checkFlag(valid)
+{
+	if (valid.checked)
+	{
+		document.getElementById('pduTool').valid.disabled = false;
+		document.getElementById('pduTool').valid.value = "255";
+		document.getElementById('validy').innerHTML=cValid("255");
+	}
+	else
+	{
+		document.getElementById('pduTool').valid.disabled = true;
+		document.getElementById('pduTool').valid.value = "";
+		document.getElementById('validy').innerHTML="";
+	}
+}
+
+function Validity(valid)
+{
+var byValidityPeriod = 0;
+
+	if (isNaN(parseInt(valid)))
+	{
+		valid = 0;
+		document.getElementById('pduTool').valid.value = valid;
+	}
+	else
+	{
+		valid=parseInt(valid);
+		if (valid <0)
+		{
+			valid = 0;
+			document.getElementById('pduTool').valid.value = valid;
+		}
+		if (valid>255)
+		{
+			valid = 255;
+			document.getElementById('pduTool').valid.value = valid;
+		}
+	}
+	return cValid(valid);
+}
+
+function cValid(valid)
+{
+	var value,out=""; 
+//	if (isNaN(parseInt(valid)))
+//	{
+//		alert("No text please we're British!");
+//	}
+	valid=parseInt(valid);
+	if (valid <= 143)
+	{
+		value = (valid+1)*5; // Minutes
+	}
+	else if (valid <= 167)
+	{
+		value = ((valid-143) / 2 + 12); // Hours
+		value *= 60; // Convert to Minutes
+	}
+	else if (valid <= 196)
+	{
+		value = valid-166; // days
+		value *= 60*24; // Convert to Minutes
+	}
+	else
+	{
+		value = valid-192; // Weeks
+		value *= 7*60*24; // Convert to Minutes
+	}
+	var mins,hours,days,weeks;
+
+	mins = value % 60;
+	hours = value / 60;
+	days = hours / 24;
+	weeks = days / 7;
+	hours %= 24;
+	days %= 7;
+
+	if (parseInt(weeks) != 0)
+	{
+		out += parseInt(weeks) + "w ";
+	}
+
+	if (parseInt(days) != 0)
+	{
+		out += parseInt(days) + "d ";
+	}
+
+	if (parseInt(hours) != 0)
+	{
+		out += parseInt(hours) + "h ";
+	}
+	if (mins != 0)
+	{
+		out += mins + "m ";
+	}
+
+	return out;
+}
+
+function clearAll()
+{
+	document.getElementById('pduTool').smsText.value ="";
+	countCharacters(document.getElementById('smsText'));
+	document.getElementById('pduTool').phoneNumber.value = "";
+	document.getElementById('pduTool').smscNumber.value = "";
+
+	change_size(7);
+
+	document.getElementById('pduTool').mclass.value = -1;
+	document.getElementById('pduTool').to_toa.value = -1;
+	document.getElementById('pduTool').receipt.checked = false;
+	//document.getElementById('pduTool').quote_memo.checked = false;
+	document.getElementById('pduTool').smsText2.value ="";
+	// document.getElementById('pduTool').valid.value = "";
+	var vFlag = document.getElementById('vFlag');
+	vFlag.checked = true;
+	checkFlag(vFlag);
+
+}
+
+</script>
+
+<form method="post" id="pduTool">
+	<table width="100%" cellspacing="0" cellpadding="0" border="0">
+		<tbody><tr>
+			<td colspan="2"><b>PDU SMS message creator</b>
+			</td>
+
+			<td> &nbsp;
+			</td>
+
+			<td>Text:
+			</td>
+
+			<td align="right">
+				<input onclick="clearAll();" type="button" value="Clear all" name="checkButton">&nbsp;
+			</td>
+		</tr>
+
+		<tr>
+			<td width="15%">Receiver:
+			</td>
+
+			<td><input type="text" name="phoneNumber" size="15" value="">
+			</td>
+
+			<td> &nbsp;
+			</td>
+
+			<td width="70%" colspan="2" rowspan="6" valign="top">
+				<textarea name="smsText" id="smsText" rows="6" wrap="virtual" style="font-family: monospace; width: 99%;" onchange="countCharacters(this)" onkeyup="countCharacters(this)">testing</textarea> 
+			</td>
+		</tr>
+
+		<tr>
+			<td>Type Of Address:
+			</td>
+
+			<td>
+				<select name="to_toa">
+					<option value="-1" selected="">Automatic
+					</option><option value="145">International
+					</option><option value="161">National
+					</option><option value="129">Unknown
+				</option></select>
+			</td>
+
+			<td> &nbsp;
+			</td>
+
+		</tr>
+
+		<tr>
+			<td>Alphabet Size:
+			</td>
+
+			<td>
+				<input type="RADIO" checked="" name="size" value="7" onclick="change_size(0);">7
+				<input type="RADIO" name="size" value="8" onclick="change_size(0);">8
+				<input type="RADIO" name="size" value="16" onclick="change_size(0);">16
+			</td>
+
+			<td> &nbsp;
+			</td>
+
+		</tr>
+
+		<tr>
+			<td>Message Class:
+			</td>
+
+			<td>
+				<select name="mclass">
+					<option value="-1" selected="">None
+					</option><option value="0">Flash
+					</option><option value="1">ME specific
+					</option><option value="2">SIM specific
+					</option><option value="3">TE specific
+				</option></select>
+			</td>
+
+			<td> &nbsp;
+			</td>
+		</tr>
+
+		<tr>
+			<td>Receipt:
+			</td>
+
+			<td><input type="CHECKBOX" name="receipt">
+			</td>
+
+			<td> &nbsp;
+			</td>
+		</tr>
+
+		<tr>
+			<td>Validity (Relative):
+			</td>
+
+			<td>
+				<input type="CHECKBOX" checked="" name="vFlag" id="vFlag" onclick="checkFlag(this);">
+				<input type="text" name="valid" id="valid" size="3" value="255" onkeyup="document.getElementById('validy').innerHTML=Validity(this.value)">
+				<span id="validy" align="left">5m </span>
+			</td>
+
+			<td> &nbsp;
+			</td>
+
+		</tr>
+
+		<tr>
+			<td>SMSC:
+			</td>
+
+			<td><input type="text" name="smscNumber" size="15" value="">
+			</td>
+
+			<td> &nbsp;
+			</td>
+
+			<td>Characters: &nbsp; 
+				<label name="counter" id="counter" size="5">17 / 160</label> &nbsp; 
+				<label id="counter_notice"><br><small>&nbsp;</small></label>
+			</td>
+			<td align="right">
+				<input type="hidden" value="" id="ATCommand" name="ATCommand"></input>
+				<input onclick="document.getElementById('ATCommand').value=stringToPDU(
+					document.getElementById('pduTool').smsText.value.substring(0, maxChars),
+					document.getElementById('pduTool').phoneNumber.value,
+					document.getElementById('pduTool').smscNumber.value,
+					document.getElementById('pduTool').size,
+					document.getElementById('pduTool').mclass.value,
+					document.getElementById('pduTool').to_toa.value,
+					document.getElementById('pduTool').valid.value,
+					document.getElementById('pduTool').receipt);this.form.submit();" type="button" value="Send >" name="stringButton">&nbsp;
+			</td>
+		</tr>
+	</tbody></table>
+</form>
+
+
+<script type="text/javascript">
+<!--
+	// update counter:
+	countCharacters(document.getElementById('smsText'));
+
+	// handle page reload:
+	var valid = document.getElementById('valid');
+	if (valid.value == "")
+	{
+		var vFlag = document.getElementById('vFlag');
+
+		vFlag.checked = true;
+		checkFlag(vFlag);
+	}
+
+	document.getElementById('validy').innerHTML=Validity(valid.value);
+-->
+</script>
